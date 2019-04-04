@@ -1,6 +1,7 @@
 Gapfilling raster data
 ================
 
+
 Often remotely sensed data have gaps across space and time, due to things like cloud. This algorithm used a spatio-temporal model, plus elevation, to fill in the gaps.
 
 
