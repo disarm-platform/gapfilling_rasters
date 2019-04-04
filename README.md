@@ -2,11 +2,13 @@ Gapfilling raster data
 ================
 
 
-Often remotely sensed data have gaps across space and time, due to things like cloud. This algorithm used a spatio-temporal model, plus elevation, to fill in the gaps.
+Often remotely sensed data have gaps across space and time, due to things like cloud. This algorithm used a spatio-temporal model, plus elevation, to fill in the gaps. 
+
+The `gapfill_GAM.R` script contains the function `gapfill_GAM`. See `gapfill_GAM_example.R` for an example of using the function on LST data from Swaziland with artificially imposed gaps. Some outputs of that example script are shown below.
 
 
 ``` r
-# Run algorithm on LST data for Swaziland with artificially created gaps (LST)
+# Run algorithm on LST data for Swaziland with artificially imposed gaps (LST)
 LST_gapfilled <- gapfill_GAM(LST, elevation, data_points = 20000)
 
 # Plot results for 1 time slice
