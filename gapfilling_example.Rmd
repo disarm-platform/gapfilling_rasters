@@ -1,0 +1,173 @@
+---
+title: "Gapfilling algorithm"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Gapfilling raster data
+
+Often remotely sensed data have gaps across space and time, due to things like cloud. This algorithm used a spatio-temporal model, plus elevation, to fill in the gaps.
+
+
+
+```{r, echo=FALSE}
+library(deldir, quietly = TRUE)
+library(raster, quietly = TRUE)
+gapfill_GAM <- function(x, data_points = 20000, Elev){ 
+  
+  if(res(Elev)[1] != res(x)[1]){
+    print("Resolutions of raster stack and elevation need to be the same!")
+    return()
+  }
+  
+  # sample non-missing points from each layer
+  n_layers <- dim(x)[3]
+  
+  # Create layer index
+  layer_index <- sort(rep(1:n_layers,length(x)/n_layers))
+  
+  # Create data frame of all data
+  all_data <- data.frame(x = rep(coordinates(x)[,1], n_layers),
+                         y = rep(coordinates(x)[,2], n_layers),
+                         data = as.vector(x[]),
+                         elev = Elev[],
+                         layer = layer_index)
+  
+  # Identify where missing values are
+  data_index <- which(!is.na(all_data$data))
+  missing_index <- which(is.na(all_data$data))
+  
+  # Identify all pixels adjacent to missing values
+  # work in progress...
+  boundary_pixels<-data.frame(layer=NULL, cell=NULL)
+  for(i in 1:dim(x)[3]){
+    missing_pixels_adjacent <- adjacent(x[[i]], which(is.na(x[[i]][])))[,2]
+    
+    if(length(missing_pixels_adjacent)>0){
+      boundary_pixels_index <- missing_pixels_adjacent[which(!is.na(x[[i]][missing_pixels_adjacent]))]
+      
+      if(length(boundary_pixels_index)>(data_points/12)){
+        boundary_pixels_index <- boundary_pixels_index[round(seq(1, length(boundary_pixels_index),
+                                                                 length.out=round(data_points/12)))]
+      }
+      
+      # TODO (potentially) remove any that have a missing value in an adjacent
+      # cell on the elevation raster (i.e. along the coast)
+      boundary_pixels <- rbind(boundary_pixels, cbind(i,boundary_pixels_index))
+    }
+    
+  }
+  
+  # Take a sequential sample of data
+  sample_index <- data_index[round(seq(1, length(data_index), length.out=data_points))]
+  
+  model_data <- all_data[sample_index,]
+  pred_data <- all_data[missing_index,]
+  pred_data$cell <- raster::cellFromXY(x, pred_data[,c("x","y")])
+  
+  # Remove any cells which are na in Elevation
+  # i.e. these lie outside the country
+  pred_data <- pred_data[-which(pred_data$cell %in% which(is.na(Elev[]))),]
+  
+  # Build model
+  gam_mod <- mgcv::gam(data ~ s(elev,k = -1) + te(x,y,layer, bs = c('tp','cr'), d = c(2,1), k = c(50,5)),
+                       data=model_data)
+  
+  # Loop to inpute missing values
+  predictions <- predict(gam_mod, newdata = pred_data)
+  
+  for(i in 1:dim(x)[3]){
+    x[[i]][pred_data$cell[pred_data$layer == i]] <- as.vector(predictions[pred_data$layer == i])
+  }
+  return(x)
+}
+
+
+##### TEST THE GAP-FILL FUNCTION
+
+# Load some test RS data
+LST <- stack("https://www.dropbox.com/s/sw0lfh2mwrhhqm6/LST_2015.tif?dl=1")
+
+# Save for later
+LST_gold_standard <- LST
+
+# get elevation data for country
+elevation <- raster::getData('alt',country="SWZ")
+elevation <- resample(elevation, LST) # To ensure same extent and resolution
+
+# Remove some chunks of the gold standard 
+# (first 2 time slices) to 
+# act as validation data
+grid_sizes <- 0.1
+  for (k in 1:length(grid_sizes)){
+        validation_grid <- expand.grid(x = seq(min(coordinates(LST)[,1]), max(coordinates(LST)[,1])+grid_sizes[1],
+                                             grid_sizes[k]),
+                                     y = seq(min(coordinates(LST)[,2]), max(coordinates(LST)[,2])+grid_sizes[1],
+                                             grid_sizes[k]))
+        }
+      
+        # generate voronoi polygons
+        dd <- deldir(validation_grid$x, validation_grid$y)
+        tiles <- tile.list(dd)
+        polys <- vector(mode='list', length=length(tiles ))
+        for (i in seq(along=polys)) {
+          pcrds <- cbind(tiles [[i]]$x, tiles [[i]]$y)
+          pcrds <- rbind(pcrds, pcrds[1,])
+          polys[[i]] <- Polygons(list(Polygon(pcrds)), ID=as.character(i))
+        }
+        SP <- SpatialPolygons(polys)
+        
+        # Randomly choose some squares to remove data from
+        nRemove <- 20
+        toRemove <- round(seq(1,length(SP),length.out = nRemove))
+        SPtoRemove <- SP[toRemove,]
+        
+        # Ramdomly remove some data points
+        rasterCoords <- SpatialPoints(coordinates(LST[[1]]))
+        pixelsInSP <- over(rasterCoords, SPtoRemove)
+        
+        RandSpace <- c(which(pixelsInSP<=nRemove/2),
+                       which(pixelsInSP>nRemove/2))
+        RandTime <- c(rep(1,length(RandSpace)/2),rep(2,length(RandSpace)/2))
+      
+      # RandSpace <- sample(which(!is.na(elevation[])),10000)
+      # RandTime <- sample(5:6,1000,replace=T)
+      
+      # Store validation data
+      ValidationData<-NULL
+      for(i in 1:length(RandSpace)){
+        ValidationData <- c(ValidationData, LST[[RandTime[i]]][RandSpace[i]])
+        LST[[RandTime[i]]][RandSpace[i]] <- NA # remove
+}
+
+# Run model and plot results
+# Run model and plot results
+```      
+
+```{r}
+# Run algorithm on LST data for Swaziland with artificially created gaps (LST)
+LST_gapfilled <- gapfill_GAM(LST, elevation, data_points = 20000)
+
+# Plot results for 1 time slice
+par(mfrow=c(1,3))
+plot(LST[[2]], main = "gold-standard with forced gaps")
+plot(LST_gold_standard [[2]], main = "gold-standard")
+plot(LST_gapfilled[[2]], main = "gap-filled")# gap-filled comparison
+
+# Look at observed versus predicted across all time slices
+```
+
+```{r, echo=FALSE}
+# Get predictions so that they match up with validationData
+# and plot results
+PredictionData<-NULL
+for(i in 1:length(RandSpace)){
+  PredictionData <- c(PredictionData, LST_gapfilled[[RandTime[i]]][RandSpace[i]])
+}
+plot(ValidationData, PredictionData,asp=1, col=rgb(0,0,1,alpha=0.05), pch=16)
+abline(0,1,lwd=2,col="red")
+```
+
