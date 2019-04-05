@@ -58,7 +58,7 @@ grid_sizes <- 0.1
 }
 
 # Run model and plot results
-LST_gapfilled <- gapfill_GAM(LST, elevation, data_points = 40000)
+LST_gapfilled <- gapfill_GAM(LST, elevation, data_points = 5000)
 par(mfrow=c(2,3))
 plot(LST[[1]], main = "gold-standard with forced gaps") # gold-standard with forced gaps
 plot(LST_gold_standard [[1]], main = "gold-standard") # gold standard

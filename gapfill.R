@@ -5,8 +5,10 @@
 # train gap filling model. Larger numbers take longer.
 # Elev is the corresponding elevation raster 
 # (at same resolution and extent, i.e. identical grids)
+library(raster)
+library(randomForest)
 
-gapfill_GAM <- function(x, data_points = 20000, Elev){ 
+gapfill <- function(x, data_points = 20000, Elev){ 
   
   if(res(Elev)[1] != res(x)[1]){
     print("Resolutions of raster stack and elevation need to be the same!")
@@ -60,14 +62,15 @@ gapfill_GAM <- function(x, data_points = 20000, Elev){
   
   # Remove any cells which are na in Elevation
   # i.e. these lie outside the country
+  model_data <- model_data[complete.cases(model_data),]
   pred_data <- pred_data[-which(pred_data$cell %in% which(is.na(Elev[]))),]
   
   # Build model
-  gam_mod <- mgcv::gam(data ~ s(elev,k = -1) + te(x,y,layer, bs = c('tp','cr'), d = c(2,1), k = c(50,5)),
-                       data=model_data)
+  rf_mod <- randomForest(data ~ elev + x + y + layer,
+                          data = model_data)
   
   # Loop to inpute missing values
-  predictions <- predict(gam_mod, newdata = pred_data)
+  predictions <- predict(rf_mod, newdata = pred_data)
   
   for(i in 1:dim(x)[3]){
     x[[i]][pred_data$cell[pred_data$layer == i]] <- as.vector(predictions[pred_data$layer == i])
