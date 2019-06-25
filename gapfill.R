@@ -1,9 +1,9 @@
 # Gapfilling function
-# x is a raster stack of equally temporally spaced
-# raster layers.
-# data_points controls the number of data used to 
+# `x` is a raster stack of equally temporally spaced
+# raster layers with missing values coded as `NA`.
+# `data_points` controls the number of data used to 
 # train gap filling model. Larger numbers take longer.
-# Elev is the corresponding elevation raster 
+# `Elev` is the corresponding elevation raster 
 # (at same resolution and extent as x, i.e. identical grids)
 library(raster)
 library(randomForest)
