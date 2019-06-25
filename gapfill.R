@@ -4,7 +4,7 @@
 # data_points controls the number of data used to 
 # train gap filling model. Larger numbers take longer.
 # Elev is the corresponding elevation raster 
-# (at same resolution and extent, i.e. identical grids)
+# (at same resolution and extent as x, i.e. identical grids)
 library(raster)
 library(randomForest)
 
