@@ -8,7 +8,7 @@ Often remotely sensed data have gaps across space and time, due to things like c
 
 
 
-``` r
+``` 
 # Run algorithm on LST data for Swaziland with artificially created gaps (LST)
 LST_gapfilled <- gapfill(LST, elevation, data_points = 20000)
 
