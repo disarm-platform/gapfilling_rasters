@@ -110,7 +110,7 @@ abline(0,1,lwd=2,col="red")
 paste("Mean squared error", round(mse_na(ValidationData, PredictionData), 1))
 ```
 
-Compare to results using the approxNA function
+Compare to results using interpolation across layers using the `approxNA` function
 ```{r, echo=FALSE}
 # Get predictions so that they match up with validationData
 # and plot results
