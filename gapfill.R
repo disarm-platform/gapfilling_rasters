@@ -34,31 +34,48 @@ gapfill <- function(x, data_points = 20000, Elev){
   
   # Identify all pixels adjacent to missing values
   # work in progress...
-  boundary_pixels<-data.frame(layer=NULL, cell=NULL)
-  for(i in 1:dim(x)[3]){
-    missing_pixels_adjacent <- adjacent(x[[i]], which(is.na(x[[i]][])))[,2]
+
+  # boundary_pixels <- data.frame(layer=NULL, cell=NULL)
+  # for(i in 1:dim(x)[3]){
+  #   missing_pixels_adjacent <- adjacent(x[[i]], which(is.na(x[[i]][])))[,2]
+  # 
+  #   if(length(missing_pixels_adjacent)>0){
+  #     boundary_pixels_index <- missing_pixels_adjacent[which(!is.na(x[[i]][missing_pixels_adjacent]))]
+  # 
+  #     if(length(boundary_pixels_index)>(data_points/12)){
+  #       boundary_pixels_index <- boundary_pixels_index[round(seq(1, length(boundary_pixels_index),
+  #                                                                length.out=round(data_points/12)))]
+  #     }
+  # 
+  #     # TODO (potentially) remove any that have a missing value in an adjacent
+  #     # cell on the elevation raster (i.e. along the coast)
+  #     boundary_pixels <- rbind(boundary_pixels, cbind(i,boundary_pixels_index))
+  #   }
+  # 
+  # }
+  
+  # temporally_adjacent_pixels <- data.frame(layer=NULL, cell=NULL)
+  # for(j in 1:dim(x)[3]){
+  #   
+  #   missing_pixels <- which(is.na(x[[j]][]))
+  # }
     
-    if(length(missing_pixels_adjacent)>0){
-      boundary_pixels_index <- missing_pixels_adjacent[which(!is.na(x[[i]][missing_pixels_adjacent]))]
-      
-      if(length(boundary_pixels_index)>(data_points/12)){
-        boundary_pixels_index <- boundary_pixels_index[round(seq(1, length(boundary_pixels_index),
-                                                                 length.out=round(data_points/12)))]
-      }
-      
-      # TODO (potentially) remove any that have a missing value in an adjacent
-      # cell on the elevation raster (i.e. along the coast)
-      boundary_pixels <- rbind(boundary_pixels, cbind(i,boundary_pixels_index))
-    }
+    # Include nearest value in time for each missing pixel
     
-  }
+  
   
   # Take a sequential sample of data
   sample_index <- data_index[round(seq(1, length(data_index), length.out=data_points))]
   
   model_data <- all_data[sample_index,]
+  model_data$cell <- raster::cellFromXY(x, model_data[,c("x","y")])
   pred_data <- all_data[missing_index,]
   pred_data$cell <- raster::cellFromXY(x, pred_data[,c("x","y")])
+  
+  # Now use the approxNA function to get linear interpolations
+  # for missing values which will act as a covariate
+  model_data$interpolation <- get_approxNA(x, model_data)
+  pred_data$interpolation <- get_approxNA(x, pred_data)
   
   # Remove any cells which are na in Elevation
   # i.e. these lie outside the country
@@ -66,7 +83,7 @@ gapfill <- function(x, data_points = 20000, Elev){
   pred_data <- pred_data[-which(pred_data$cell %in% which(is.na(Elev[]))),]
   
   # Build model
-  rf_mod <- randomForest(data ~ elev + x + y + layer,
+  rf_mod <- randomForest(data ~ interpolation + elev + x + y + layer,
                           data = model_data)
   
   # Loop to inpute missing values
