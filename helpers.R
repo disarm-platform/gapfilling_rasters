@@ -1,3 +1,5 @@
+library(Metrics)
+
 ## Helpers for gapfill function
 create_validation_stack <- function(x, n){
   
