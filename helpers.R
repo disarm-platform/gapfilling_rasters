@@ -48,3 +48,8 @@ extract_by_layer_cell <- function(x, query_df){
   }
   return(values)
 }
+
+mse_na <- function (actual, predicted) 
+{
+  return(mean(se(actual, predicted), na.rm=T))
+}

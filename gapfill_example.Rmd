@@ -36,7 +36,7 @@ elevation <- resample(elevation, LST) # To ensure same extent and resolution
 # Remove some chunks of the gold standard 
 # (first 2 time slices) to 
 # act as validation data
-grid_sizes <- 0.1
+grid_sizes <- 0.15
   for (k in 1:length(grid_sizes)){
         validation_grid <- expand.grid(x = seq(min(coordinates(LST)[,1]), max(coordinates(LST)[,1])+grid_sizes[1],
                                              grid_sizes[k]),
@@ -84,17 +84,16 @@ swz_adm0 <- raster::getData("GADM", country = "SWZ", level=0)
 
 ```{r}
 # Run algorithm on LST data for Swaziland with artificially created gaps (LST)
-LST_gapfilled <- gapfill(LST, elevation, data_points = 20000)
+LST_gapfilled <- gapfill(LST, elevation, data_points = 40000)
 
 # Plot results for 1 time slice
 par(mfrow=c(1,3))
 plot(mask(LST[[2]], swz_adm0), main = "gold-standard with forced gaps")
 plot(mask(LST_gold_standard [[2]], swz_adm0), main = "gold-standard")
 plot(mask(LST_gapfilled[[2]], swz_adm0), main = "gap-filled")# gap-filled comparison
-
-# Look at observed versus predicted across all time slices
 ```
 
+Look at observed versus predicted across all time slices
 ```{r, echo=FALSE}
 # Get predictions so that they match up with validationData
 # and plot results
@@ -102,7 +101,29 @@ PredictionData<-NULL
 for(i in 1:length(RandSpace)){
   PredictionData <- c(PredictionData, LST_gapfilled[[RandTime[i]]][RandSpace[i]])
 }
-plot(ValidationData, PredictionData,asp=1, col=rgb(0,0,1,alpha=0.05), pch=16)
+plot(ValidationData, PredictionData,
+          xlim=range(ValidationData, na.rm=T),
+     ylim=range(ValidationData, na.rm=T),
+     col=rgb(0,0,1,alpha=0.1), pch=16)
 abline(0,1,lwd=2,col="red")
+
+paste("Mean squared error", round(mse_na(ValidationData, PredictionData), 1))
 ```
 
+Compare to results using the approxNA function
+```{r, echo=FALSE}
+# Get predictions so that they match up with validationData
+# and plot results
+test <- approxNA(LST)
+PredictionData<-NULL
+for(i in 1:length(RandSpace)){
+  PredictionData <- c(PredictionData, test[[RandTime[i]]][RandSpace[i]])
+}
+plot(ValidationData, PredictionData,
+     xlim=range(ValidationData, na.rm=T),
+     ylim=range(ValidationData, na.rm=T),
+      col=rgb(0,0,1,alpha=0.1), pch=16)
+abline(0,1,lwd=2,col="red")
+
+paste("Mean squared error", round(mse_na(ValidationData, PredictionData), 1))
+```
