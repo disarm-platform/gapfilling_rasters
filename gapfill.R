@@ -12,10 +12,9 @@ source("https://raw.githubusercontent.com/HughSt/gapfilling_rasters/master/helpe
 gapfill <- function(x, data_points = 20000, Elev){ 
   
   if(res(Elev)[1] != res(x)[1]){
-    print("Resolutions of raster stack and elevation need to be the same!")
-    return()
+    stop("Resolutions of raster stack and elevation need to be the same!")
   }
-  
+
   # sample non-missing points from each layer
   n_layers <- dim(x)[3]
   
@@ -62,27 +61,35 @@ gapfill <- function(x, data_points = 20000, Elev){
   # }
     
     # Include nearest value in time for each missing pixel
-    
-  
   
   # Take a sequential sample of data
+  if(length(data_index) >= data_points){
+    sample_index <- data_index
+  }else{
   sample_index <- data_index[round(seq(1, length(data_index), length.out=data_points))]
+  }
   
   model_data <- all_data[sample_index,]
   model_data$cell <- raster::cellFromXY(x, model_data[,c("x","y")])
   pred_data <- all_data[missing_index,]
   pred_data$cell <- raster::cellFromXY(x, pred_data[,c("x","y")])
   
-  # Now use the approxNA function to get linear interpolations
+  # If there are multiple rasterLayers, use the approxNA function to get linear interpolations
   # for missing values which will act as a covariate
+  if(n_layers > 1){
   model_data$interpolation <- get_approxNA(x, model_data)
   pred_data$interpolation <- get_approxNA(x, pred_data)
+  }else{
+    model_data$interpolation <- 0
+    pred_data$interpolation <- 0
+  }
   
   # Remove any cells which are na in Elevation
   # i.e. these lie outside the country
   model_data <- model_data[complete.cases(model_data),]
   pred_data <- pred_data[-which(pred_data$cell %in% which(is.na(Elev[]))),]
   
+  browser()
   # Build model
   rf_mod <- randomForest(data ~ interpolation + elev + x + y + layer,
                           data = model_data)
@@ -90,13 +97,12 @@ gapfill <- function(x, data_points = 20000, Elev){
   # Loop to inpute missing values
   predictions <- predict(rf_mod, newdata = pred_data)
   
-  for(i in 1:dim(x)[3]){
-    x[[i]][pred_data$cell[pred_data$layer == i]] <- as.vector(predictions[pred_data$layer == i])
+  if(n_layers == 1){
+      x[pred_data$cell] <- as.vector(predictions)
+  }else{
+    for(i in 1:dim(x)[3]){
+      x[[i]][pred_data$cell[pred_data$layer == i]] <- as.vector(predictions[pred_data$layer == i])
+    }
   }
   return(x)
 }
-
-
-
-
-
