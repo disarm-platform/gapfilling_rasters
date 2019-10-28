@@ -14,7 +14,7 @@ gapfill <- function(x, data_points = 20000, Elev){
   if(res(Elev)[1] != res(x)[1]){
     stop("Resolutions of raster stack and elevation need to be the same!")
   }
-
+browser()
   # sample non-missing points from each layer
   n_layers <- dim(x)[3]
   
@@ -63,7 +63,7 @@ gapfill <- function(x, data_points = 20000, Elev){
     # Include nearest value in time for each missing pixel
   
   # Take a sequential sample of data
-  if(length(data_index) >= data_points){
+  if(length(data_index) <= data_points){
     sample_index <- data_index
   }else{
   sample_index <- data_index[round(seq(1, length(data_index), length.out=data_points))]
@@ -90,7 +90,11 @@ gapfill <- function(x, data_points = 20000, Elev){
   pred_data <- pred_data[-which(pred_data$cell %in% which(is.na(Elev[]))),]
   
   # Build model
-  rf_mod <- randomForest(data ~ interpolation + elev + x + y + layer,
+  rf_mod <- randomForest(data ~ interpolation + 
+                           elev + 
+                           x + 
+                           y + 
+                           layer,
                           data = model_data)
   
   # Loop to inpute missing values
