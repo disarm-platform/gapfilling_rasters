@@ -10,7 +10,7 @@ library(randomForest)
 source("https://raw.githubusercontent.com/HughSt/gapfilling_rasters/master/helpers.R")
 
 gapfill <- function(x, data_points = 20000, Elev){ 
-  
+
   if(res(Elev)[1] != res(x)[1]){
     stop("Resolutions of raster stack and elevation need to be the same!")
   }
@@ -87,7 +87,10 @@ gapfill <- function(x, data_points = 20000, Elev){
   # Remove any cells which are na in Elevation
   # i.e. these lie outside the country
   model_data <- model_data[complete.cases(model_data),]
+  
+  if(length(which(pred_data$cell %in% which(is.na(Elev[])))) > 0 ){
   pred_data <- pred_data[-which(pred_data$cell %in% which(is.na(Elev[]))),]
+  }
   
   # Build model
   rf_mod <- randomForest(data ~ interpolation + 
