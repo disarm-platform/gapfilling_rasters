@@ -89,7 +89,6 @@ gapfill <- function(x, data_points = 20000, Elev){
   model_data <- model_data[complete.cases(model_data),]
   pred_data <- pred_data[-which(pred_data$cell %in% which(is.na(Elev[]))),]
   
-  browser()
   # Build model
   rf_mod <- randomForest(data ~ interpolation + elev + x + y + layer,
                           data = model_data)
