@@ -14,7 +14,7 @@ gapfill <- function(x, data_points = 20000, Elev){
   if(res(Elev)[1] != res(x)[1]){
     stop("Resolutions of raster stack and elevation need to be the same!")
   }
-browser()
+
   # sample non-missing points from each layer
   n_layers <- dim(x)[3]
   
