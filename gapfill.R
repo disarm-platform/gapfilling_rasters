@@ -7,8 +7,7 @@
 # (at same resolution and extent as x, i.e. identical grids)
 library(raster)
 library(randomForest)
-#source("https://raw.githubusercontent.com/HughSt/gapfilling_rasters/master/helpers.R")
-source("~/Documents/Work/MEI/DiSARM/GitRepos/gapfilling_rasters/helpers.R")
+source("https://raw.githubusercontent.com/HughSt/gapfilling_rasters/master/helpers.R")
 
 gapfill <- function(x, data_points = 20000, Elev, gam = FALSE){ 
 
