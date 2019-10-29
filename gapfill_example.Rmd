@@ -9,21 +9,20 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Gapfilling raster data
 
-Often remotely sensed data have gaps across space and time, due to things like cloud. This algorithm used a spatio-temporal model, plus elevation, to fill in the gaps.
+Often remotely sensed data have gaps across space and time, due to things like cloud. While functions like approxNA from the raster package can be useful as way to interpolate missing values from their neighbours in time, as many remotely sensed layers are related to elevation, it should be possible to also include an elevation effect when predicting missing values. This algorithm uses random forest model, with interpolated values, elevation and time to fill in the gaps. It will also work with single raster layers (i.e. from a single time slice) but instead of using a random forest, it fits a Generalized Additive Model with a smooth on elevation and a bivariate smooth on longitude and latitude. 
 
+Let's test the algorithm wuth some artifically enforced missing values.
 
-
-```{r, echo=FALSE}
+```{r}
 library(deldir, quietly = TRUE)
 library(raster, quietly = TRUE)
 library(randomForest, quietly=TRUE)
+library(sf)
 source("https://raw.githubusercontent.com/HughSt/gapfilling_rasters/master/gapfill.R")
+```
 
-
-
-##### TEST THE GAP-FILL FUNCTION
-
-# Load some test RS data
+```{r}
+# Load monthyl land surface temperature data from 2015 for Swaziland
 LST <- stack("https://www.dropbox.com/s/sw0lfh2mwrhhqm6/LST_2015.tif?dl=1")
 
 # Save for later
@@ -33,53 +32,14 @@ LST_gold_standard <- LST
 elevation <- raster::getData('alt',country="SWZ")
 elevation <- resample(elevation, LST) # To ensure same extent and resolution
 
-# Remove some chunks of the gold standard 
-# (first 2 time slices) to 
-# act as validation data
-grid_sizes <- 0.15
-  for (k in 1:length(grid_sizes)){
-        validation_grid <- expand.grid(x = seq(min(coordinates(LST)[,1]), max(coordinates(LST)[,1])+grid_sizes[1],
-                                             grid_sizes[k]),
-                                     y = seq(min(coordinates(LST)[,2]), max(coordinates(LST)[,2])+grid_sizes[1],
-                                             grid_sizes[k]))
-        }
-      
-        # generate voronoi polygons
-        dd <- deldir(validation_grid$x, validation_grid$y)
-        tiles <- tile.list(dd)
-        polys <- vector(mode='list', length=length(tiles ))
-        for (i in seq(along=polys)) {
-          pcrds <- cbind(tiles [[i]]$x, tiles [[i]]$y)
-          pcrds <- rbind(pcrds, pcrds[1,])
-          polys[[i]] <- Polygons(list(Polygon(pcrds)), ID=as.character(i))
-        }
-        SP <- SpatialPolygons(polys)
-        
-        # Randomly choose some squares to remove data from
-        nRemove <- 20
-        toRemove <- round(seq(1,length(SP),length.out = nRemove))
-        SPtoRemove <- SP[toRemove,]
-        
-        # Ramdomly remove some data points
-        rasterCoords <- SpatialPoints(coordinates(LST[[1]]))
-        pixelsInSP <- over(rasterCoords, SPtoRemove)
-        
-        RandSpace <- c(which(pixelsInSP<=nRemove/2),
-                       which(pixelsInSP>nRemove/2))
-        RandTime <- c(rep(1,length(RandSpace)/2),rep(2,length(RandSpace)/2))
-      
-      # RandSpace <- sample(which(!is.na(elevation[])),10000)
-      # RandTime <- sample(5:6,1000,replace=T)
-      
-      # Store validation data
-      ValidationData<-NULL
-      for(i in 1:length(RandSpace)){
-        ValidationData <- c(ValidationData, LST[[RandTime[i]]][RandSpace[i]])
-        LST[[RandTime[i]]][RandSpace[i]] <- NA # remove
-}
-
+# Get Swaziland outline
 swz_adm0 <- raster::getData("GADM", country = "SWZ", level=0)
-# Run model and plot results
+
+# Import some fake clouds
+clouds <- st_read("https://raw.githubusercontent.com/HughSt/gapfilling_rasters/master/clouds_swz.geojson")
+
+# Use the clouds to mask out values in 2nd (arbitrary) layer of 12
+LST[[2]] <- mask(LST[[2]], clouds, inverse = TRUE)
 ```      
 
 ```{r}
@@ -93,37 +53,18 @@ plot(mask(LST_gold_standard [[2]], swz_adm0), main = "gold-standard")
 plot(mask(LST_gapfilled[[2]], swz_adm0), main = "gap-filled")# gap-filled comparison
 ```
 
-Look at observed versus predicted across all time slices
-```{r, echo=FALSE}
+Look at observed versus predicted for the artificailly created NAs
+```{r}
 # Get predictions so that they match up with validationData
 # and plot results
-PredictionData<-NULL
-for(i in 1:length(RandSpace)){
-  PredictionData <- c(PredictionData, LST_gapfilled[[RandTime[i]]][RandSpace[i]])
-}
-plot(ValidationData, PredictionData,
-          xlim=range(ValidationData, na.rm=T),
-     ylim=range(ValidationData, na.rm=T),
-     col=rgb(0,0,1,alpha=0.1), pch=16)
-abline(0,1,lwd=2,col="red")
+missing_pixels <- which(is.na(LST[[2]][]))
+truth <- LST_gold_standard[[2]][missing_pixels]
+gapfill_predicted <- LST_gapfilled[[2]][missing_pixels]
+approxNA_predicted <- approxNA(LST)[[2]][missing_pixels]
 
-paste("Mean squared error", round(mse_na(ValidationData, PredictionData), 1))
-```
-
-Compare to results using interpolation across layers using the `approxNA` function
-```{r, echo=FALSE}
-# Get predictions so that they match up with validationData
-# and plot results
-test <- approxNA(LST)
-PredictionData<-NULL
-for(i in 1:length(RandSpace)){
-  PredictionData <- c(PredictionData, test[[RandTime[i]]][RandSpace[i]])
-}
-plot(ValidationData, PredictionData,
-     xlim=range(ValidationData, na.rm=T),
-     ylim=range(ValidationData, na.rm=T),
-      col=rgb(0,0,1,alpha=0.1), pch=16)
-abline(0,1,lwd=2,col="red")
-
-paste("Mean squared error", round(mse_na(ValidationData, PredictionData), 1))
+par(mfrow=c(1,2))
+plot(truth, gapfill_predicted, asp=1); abline(0,1)
+plot(truth, approxNA_predicted, asp=1); abline(0,1)
+paste("Mean squared error using gapfill", mse(truth, gapfill_predicted))
+paste("Mean squared error using approxNA", round(mse(truth, approxNA_predicted), 1))
 ```

@@ -7,9 +7,10 @@
 # (at same resolution and extent as x, i.e. identical grids)
 library(raster)
 library(randomForest)
-source("https://raw.githubusercontent.com/HughSt/gapfilling_rasters/master/helpers.R")
+#source("https://raw.githubusercontent.com/HughSt/gapfilling_rasters/master/helpers.R")
+source("~/Documents/Work/MEI/DiSARM/GitRepos/gapfilling_rasters/helpers.R")
 
-gapfill <- function(x, data_points = 20000, Elev){ 
+gapfill <- function(x, data_points = 20000, Elev, gam = FALSE){ 
 
   if(res(Elev)[1] != res(x)[1]){
     stop("Resolutions of raster stack and elevation need to be the same!")
@@ -31,36 +32,6 @@ gapfill <- function(x, data_points = 20000, Elev){
   # Identify where missing values are
   data_index <- which(!is.na(all_data$data))
   missing_index <- which(is.na(all_data$data))
-  
-  # Identify all pixels adjacent to missing values
-  # work in progress...
-
-  # boundary_pixels <- data.frame(layer=NULL, cell=NULL)
-  # for(i in 1:dim(x)[3]){
-  #   missing_pixels_adjacent <- adjacent(x[[i]], which(is.na(x[[i]][])))[,2]
-  # 
-  #   if(length(missing_pixels_adjacent)>0){
-  #     boundary_pixels_index <- missing_pixels_adjacent[which(!is.na(x[[i]][missing_pixels_adjacent]))]
-  # 
-  #     if(length(boundary_pixels_index)>(data_points/12)){
-  #       boundary_pixels_index <- boundary_pixels_index[round(seq(1, length(boundary_pixels_index),
-  #                                                                length.out=round(data_points/12)))]
-  #     }
-  # 
-  #     # TODO (potentially) remove any that have a missing value in an adjacent
-  #     # cell on the elevation raster (i.e. along the coast)
-  #     boundary_pixels <- rbind(boundary_pixels, cbind(i,boundary_pixels_index))
-  #   }
-  # 
-  # }
-  
-  # temporally_adjacent_pixels <- data.frame(layer=NULL, cell=NULL)
-  # for(j in 1:dim(x)[3]){
-  #   
-  #   missing_pixels <- which(is.na(x[[j]][]))
-  # }
-    
-    # Include nearest value in time for each missing pixel
   
   # Take a sequential sample of data
   if(length(data_index) <= data_points){
@@ -93,15 +64,18 @@ gapfill <- function(x, data_points = 20000, Elev){
   }
   
   # Build model
-  rf_mod <- randomForest(data ~ interpolation + 
+  if(n_layers > 1){
+  mod <- randomForest(data ~ interpolation + 
                            elev + 
-                           x + 
-                           y + 
                            layer,
                           data = model_data)
-  
+  }else{
+    mod <- bam(data ~ s(elev) +
+                   s(x, y),
+                 data = model_data)
+  }
   # Loop to inpute missing values
-  predictions <- predict(rf_mod, newdata = pred_data)
+  predictions <- predict(mod, newdata = pred_data)
   
   if(n_layers == 1){
       x[pred_data$cell] <- as.vector(predictions)
