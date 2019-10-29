@@ -41,7 +41,7 @@ swz_adm0 <- raster::getData("GADM", country = "SWZ", level=0)
 ```
 
 We are now going to import some fake clouds and use these to generate some missing values in the 2 (arbitrary) time slice
-# Import some fake clouds
+```{r}
 clouds <- st_read("https://raw.githubusercontent.com/HughSt/gapfilling_rasters/master/clouds_swz.geojson")
 LST[[2]] <- mask(LST[[2]], clouds, inverse = TRUE)
 ```
